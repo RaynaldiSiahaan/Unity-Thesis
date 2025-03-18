@@ -5,6 +5,7 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovement : MonoBehaviour
 {
+
     public Camera playerCamera;
     public float walkSpeed = 3f;
     public float runSpeed = 6f;
@@ -25,24 +26,23 @@ public class PlayerMovement : MonoBehaviour
     private bool isCurrentlyRunning = false; // Tracks running status
     private float targetHeight; // Target height for crouching/standing
 
+    public Transform[] teleportPoints; // Array to store teleport points
+    private int currentPointIndex = 0; // Tracks current teleport index
+
+    public Rigidbody rb;   
+    
     void Start()
     {
         characterController = GetComponent<CharacterController>();
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
-
         // Set initial height
         targetHeight = defaultHeight;
     }
 
     void Update()
 {
-    Vector3 forward = transform.TransformDirection(Vector3.forward);
-    Vector3 right = transform.TransformDirection(Vector3.right);
-
-    // Determine if the player is grounded
-    bool isGrounded = characterController.isGrounded;
-
+    
     // Crouch logic (press and hold)
     if (Input.GetKey(KeyCode.LeftControl) && canMove)
     {
@@ -53,7 +53,49 @@ public class PlayerMovement : MonoBehaviour
         targetHeight = defaultHeight;
     }
 
-    // Smoothly adjust height
+    if (Input.GetKeyDown("y")) // Checks if LShift button is pressed
+        {
+            TeleportToNextPoint();
+        }
+
+    // Move.
+    MovementControl();
+  }
+    // Handle Teleportation
+   void TeleportToNextPoint()
+{
+    if (teleportPoints.Length == 0) return;
+
+    currentPointIndex = (currentPointIndex + 1) % teleportPoints.Length;
+    
+    if (rb != null) 
+    {
+        StartCoroutine(Teleport()); // Use transform position
+    }
+    else
+    {
+        Debug.Log("Rigidbody not found!");
+    }
+
+}
+
+IEnumerator Teleport(){
+        yield return new WaitForSeconds(0.5f);
+        gameObject.transform.position = teleportPoints[currentPointIndex].position;
+        Debug.Log($"Teleported to: {teleportPoints[currentPointIndex].position}");
+        yield return new WaitForSeconds(0.5f);
+
+    }
+
+    // Handle player movement
+    void MovementControl()
+{
+    Vector3 forward = transform.TransformDirection(Vector3.forward);
+    Vector3 right = transform.TransformDirection(Vector3.right);
+
+    // Determine if the player is grounded
+    bool isGrounded = characterController.isGrounded;
+
     characterController.height = Mathf.Lerp(characterController.height, targetHeight, crouchTransitionSpeed * Time.deltaTime);
 
     // Adjust speed while crouching
@@ -126,5 +168,5 @@ public class PlayerMovement : MonoBehaviour
         playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0, 0);
         transform.rotation *= Quaternion.Euler(0, Input.GetAxis("Mouse X") * lookSpeed, 0);
     }
-  }
+    }
 }
