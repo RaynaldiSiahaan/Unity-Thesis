@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 30c47bf369fc38445aed1fe62d6602b9
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 365
+  packageName: zz Ruler
+  packageVersion: 2.0
+  assetPath: Assets/zzRuler/zzHorizontalRuler.cs
+  uploadId: 24520

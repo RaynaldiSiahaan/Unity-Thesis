@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 91c49f004a1dc2d44843008630910f98
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 365
+  packageName: zz Ruler
+  packageVersion: 2.0
+  assetPath: Assets/zzRuler/Materials/horizontalDoubleFace.mat
+  uploadId: 24520

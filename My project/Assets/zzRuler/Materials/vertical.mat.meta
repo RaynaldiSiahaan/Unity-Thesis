@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 89f85bf20e54ed746bc48a4678c66677
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 365
+  packageName: zz Ruler
+  packageVersion: 2.0
+  assetPath: Assets/zzRuler/Materials/vertical.mat
+  uploadId: 24520

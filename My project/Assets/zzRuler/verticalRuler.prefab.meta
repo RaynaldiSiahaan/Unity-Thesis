@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 9ab48de1e6a2aba4bbf1c590781d37b1
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 365
+  packageName: zz Ruler
+  packageVersion: 2.0
+  assetPath: Assets/zzRuler/verticalRuler.prefab
+  uploadId: 24520
