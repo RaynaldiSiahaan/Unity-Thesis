@@ -6,8 +6,7 @@ public class APCController : MonoBehaviour
 {
     [SerializeField] private Transform[] waypoints; // Array of waypoints
     [SerializeField] private float speedKPH = 10f; // Speed in km/h
-    [SerializeField] private float fixedY = 1f;
-    [SerializeField] private float stopDuration = 5f;
+    [SerializeField] private float stopDuration = 1f;
     [SerializeField] private float wheelRadius = 0.5f; // Adjust based on actual wheel size
     [SerializeField] private Transform[] wheels;
 
@@ -20,7 +19,7 @@ public class APCController : MonoBehaviour
     private int index;
     private Rigidbody rb;
     private Vector3 lastPosition;
-
+    private Quaternion lastRotation; // Store the last rotation
     public PlayerMovement playerMovement; // Reference to PlayerMovement script
     public InputController inputController; // Reference to InputController script
     private float newSpeed; // New speed from InputController
@@ -29,6 +28,7 @@ public class APCController : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         lastPosition = transform.position;
+        lastRotation = transform.rotation;
     }
 
     public void ReadStringInput(string s)
@@ -64,48 +64,55 @@ public class APCController : MonoBehaviour
 
     private void MoveAPC()
     {
-        if (waypoints.Length != 1 || isStopped) return;
+        if (isStopped) return;
 
         // Convert speed from km/h to m/s
         speedMPS = speedKPH * 0.27778f;
 
-        // Get current waypoint position but keep Y fixed
+        // Get the target waypoint position but keep Y fixed
         Vector3 targetPosition = waypoints[currentWaypointIndex].position;
-        targetPosition.y = fixedY; // Set Y to fixed value
 
-        // Move towards the next waypoint
-        Transform targetWaypoint = waypoints[currentWaypointIndex];
+        // Move towards the target waypoint
         transform.position = Vector3.MoveTowards(transform.position, targetPosition, speedMPS * Time.deltaTime);
 
         float distanceTraveled = Vector3.Distance(transform.position, lastPosition);
         lastPosition = transform.position; // Update last position
-        Debug.Log("The APC is moving!" + " Current speed: " + speedKPH + " km/h");
 
         // Rotate the wheels
         RotateWheels(distanceTraveled);
 
-        // Check if the car reached the waypoint
+        // Check if the APC reached the target waypoint
         if (Vector3.Distance(transform.position, targetPosition) < 1f)
         {
             Debug.Log("You've arrived at the waypoint!");
 
-            if (currentWaypointIndex == waypoints.Length - 1) // Last waypoint
+            if (currentWaypointIndex == waypoints.Length - 1) // Last waypoint (Finish)
             {
+                rb.isKinematic = true;
                 StartCoroutine(StopAndReset());
             }
             else
             {
-                currentWaypointIndex++;
+                currentWaypointIndex++; // Move to the next waypoint
             }
         }
     }
 
     private IEnumerator StopAndReset()
     {
+        Debug.Log("Stopping at the finish waypoint!");
+
         isStopped = true;
-        yield return new WaitForSeconds(stopDuration); // Stop for 5 seconds
-        currentWaypointIndex = 0; // Go back to the first waypoint
+        yield return new WaitForSeconds(stopDuration); // Stop for the specified duration
+
+        // Reset to the first waypoint's position
+        Vector3 Start = waypoints[0].position;
+        transform.position = Start;
+        transform.rotation = lastRotation;
+        currentWaypointIndex = 0; // Reset to the first waypoint
         isStopped = false;
+        yield return new WaitForSeconds(stopDuration);
+        rb.isKinematic = false; // Reactivate the Rigidbody
     }
 
     void RotateWheels(float distance)
