@@ -89,6 +89,8 @@ public class PlayerMovement : MonoBehaviour
         MovementControl();
     }
 
+
+
     // Handle Teleportation
     public void TeleportToNextPoint()
     {
