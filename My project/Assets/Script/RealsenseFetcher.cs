@@ -4,6 +4,7 @@ using UnityEngine.Networking;
 
 public class RealSenseFetcher : MonoBehaviour
 {
+    string 
     public string serverURL = "http://127.0.0.1:5000/coords";  // <-- replace with your Flask server IP
 
     void Start()
