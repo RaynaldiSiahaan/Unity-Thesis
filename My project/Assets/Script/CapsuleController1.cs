@@ -4,7 +4,6 @@ public class CapsuleController1 : MonoBehaviour
 {
     public float distance;
     public float horizontal;
-
     private string input1;
     private string input2;
     public GameObject inputPanel;
@@ -23,7 +22,7 @@ public class CapsuleController1 : MonoBehaviour
     {
         Vector3 pos = transform.position;
         input1 = d;
-        distance = float.Parse(input1) +11; // Convert string to float
+        distance = float.Parse(input1) +6; // Convert string to float
         transform.position = new Vector3(pos.x, pos.y, distance); 
     }
 
