@@ -4,7 +4,7 @@ using UnityEngine.Networking;
 
 public class RealSenseFetcher : MonoBehaviour
 {
-    string 
+    public float x;
     public string serverURL = "http://127.0.0.1:5000/coords";  // <-- replace with your Flask server IP
 
     void Start()
@@ -30,6 +30,7 @@ public class RealSenseFetcher : MonoBehaviour
 
                 if (coords != null)
                 {
+                    x = coords.x;
                     Debug.Log($"[Grenade] X: {coords.x:F2}, Y: {coords.y:F2}, Z: {coords.z:F2}, Distance: {coords.distance:F2} meters");
                 }
             }
