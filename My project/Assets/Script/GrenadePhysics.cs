@@ -1,16 +1,20 @@
 using UnityEngine;
+using System.Collections;
 
 public class GrenadeThrow : MonoBehaviour
 {
-    //Serialize Field
-    [SerializeField] private float x1Width, y1Height, z1Depth; // Initial screen position + depth in meters
-    [SerializeField] private float x2Width, y2Height, z2Depth; // Final screen position + depth in meters
-    [SerializeField] private float timeInterval; // Time difference (seconds)
-    [SerializeField] private float dragCoefficient = 0.1f; // Wind resistance factor
-    [SerializeField] private Camera mainCamera; // Assign in Inspector
+    // Serialize Fields
+    [SerializeField] private float x1Width, y1Height, z1Depth;
+    [SerializeField] private float x2Width, y2Height, z2Depth;
+    [SerializeField] private float timeInterval;
+    [SerializeField] private float dragCoefficient = 0.1f;
+    [SerializeField] private Camera mainCamera;
+    
+    [Header("Explosion Settings")]
+    public GameObject explosionPrefab;    // assign your explosion VFX prefab here
+    [SerializeField] private float explosionDelay = 4f;     // delay in seconds
 
-    //Variable
-    private float x1, y1, z1, x2, y2, z2;
+    // Variables
     private Rigidbody rb;
     private Vector3 velocity;
 
@@ -18,55 +22,54 @@ public class GrenadeThrow : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         rb.useGravity = true;
-        x1 = x1Width;
-        y1 = y1Height;
-        z1 = z1Depth;
-        x2 = x2Width;
-        y2 = y2Height;
-        z2 = z2Depth;
         ThrowGrenade();
     }
 
     void ThrowGrenade()
     {
-        // Convert screen pixels to world space using depth (z)
-        Vector3 worldPos1 = mainCamera.ScreenToWorldPoint(new Vector3(x1, y1, z1));
-        Vector3 worldPos2 = mainCamera.ScreenToWorldPoint(new Vector3(x2, y2, z2));
-
-        // Calculate velocity (meters per second)
+        // convert screen → world
+        Vector3 worldPos1 = mainCamera.ScreenToWorldPoint(new Vector3(x1Width, y1Height, z1Depth));
+        Vector3 worldPos2 = mainCamera.ScreenToWorldPoint(new Vector3(x2Width, y2Height, z2Depth));
         velocity = (worldPos2 - worldPos1) / timeInterval;
-
-        // Apply velocity to Rigidbody
         rb.linearVelocity = velocity;
 
-        // Debugging
-        Debug.Log($"World Position Before: {worldPos1}");
-        Debug.Log($"World Position After: {worldPos2}");
+        // schedule explosion
+        Invoke(nameof(Explode), explosionDelay);
+
+        // debug
         Debug.Log($"Velocity: {velocity}");
-        Debug.Log($"Throw Angle: {Mathf.Atan2(velocity.y, Mathf.Sqrt(velocity.x * velocity.x + velocity.z * velocity.z)) * Mathf.Rad2Deg} degrees");
     }
 
     void FixedUpdate()
     {
-        // Apply wind resistance (drag)
+        // wind drag
         Vector3 windForce = -dragCoefficient * rb.linearVelocity.sqrMagnitude * rb.linearVelocity.normalized;
         rb.AddForce(windForce, ForceMode.Acceleration);
     }
 
-    private void OnCollisionEnter(Collision other) {
-        if (other.gameObject.CompareTag("Terrain")) {
-            // Explode grenade
+    private void Explode()
+    {
+        // spawn explosion VFX
+        if (explosionPrefab != null)
+            Instantiate(explosionPrefab, transform.position, Quaternion.identity);
+
+        // TODO: apply damage, area effects, sound, etc. here
+
+        // clean up
+        Destroy(gameObject);
+    }
+
+    private void OnCollisionEnter(Collision other)
+    {
+        if (other.gameObject.CompareTag("Terrain"))
+        {
             DestroyLineRenderer();
         }
     }
 
-    private void DestroyLineRenderer() {
-        LineRenderer lineRenderer = GetComponent<LineRenderer>();
-        if (lineRenderer != null) {
-            Destroy(lineRenderer, 2f);
-        }
+    private void DestroyLineRenderer()
+    {
+        LineRenderer lr = GetComponent<LineRenderer>();
+        if (lr != null) Destroy(lr, 2f);
     }
 }
-
-/// RUMUS
-///

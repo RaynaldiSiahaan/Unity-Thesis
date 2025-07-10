@@ -5,6 +5,8 @@ TagManager:
   serializedVersion: 3
   tags:
   - Terrain
+  - Target 1
+  - Target 2
   layers:
   - Default
   - TransparentFX
