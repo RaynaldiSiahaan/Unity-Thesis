@@ -13,10 +13,12 @@ public class PlayerMovement : MonoBehaviour
     public float lookSpeed = 2f;
     public float lookXLimit = 90f;
     public float defaultHeight = 2f;
-    public float crouchHeight = 1f;
-    public float crouchSpeed = 3f;
-    public float crouchTransitionSpeed = 15f; // Speed of crouch height transition
+    public float proneHeight = 1f;
+    public float proneSpeed = 3f;
+    public float proneTransitionSpeed = 15f; // Speed of prone height transition
     public int teleportPointIndex = 0; // Index of teleport point to move to
+
+    private bool isProneState = false;  // Tracks if player is in prone state
 
     private Vector3 moveDirection = Vector3.zero;
     private float rotationX = 0;
@@ -24,24 +26,43 @@ public class PlayerMovement : MonoBehaviour
 
     private bool canMove = true;
     private bool isCurrentlyRunning = false; // Tracks running status
-    private float targetHeight; // Target height for crouching/standing
+    private float targetHeight; // Target height for prone/standing
 
     public Transform[] teleportPoints; // Array to store teleport points
     private int currentPointIndex = 0; // Tracks current teleport index
+
+    //Camera height and rotation
+    private float camStandY;
+    private float camProneY;
+    private Quaternion camStandRot;
+    private Quaternion camProneRot;
+    [Header("Prone Camera Rotation")]
+    [Tooltip("Local Euler angles for camera when prone")]
+    public Vector3 proneCameraEuler = new Vector3(90f, 0f, 0f);
+    
 
     public Rigidbody rb;
 
     void Start()
     {
-        gameObject.transform.position = teleportPoints[currentPointIndex].position;
+        // Start at the first teleport point
+        if (teleportPoints.Length > 0)
+            transform.position = teleportPoints[currentPointIndex].position;
+
         characterController = GetComponent<CharacterController>();
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = true;
-        // Set initial height
         targetHeight = defaultHeight;
+
+        //cache camera positions and rotations
+        camStandY   = playerCamera.transform.localPosition.y;
+        camProneY   = camStandY - (defaultHeight - proneHeight);
+        camStandRot = playerCamera.transform.localRotation;
+        camProneRot = Quaternion.Euler(proneCameraEuler);
     }
 
-    public void ContinueCursor(){
+    public void ContinueCursor()
+    {
         canMove = true;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -49,47 +70,37 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
-        // Crouch logic (press and hold)
-        if (Input.GetKey(KeyCode.LeftControl) && canMove)
+        // Prone logic (press and hold Left Control)
+        if (canMove && Input.GetKeyDown(KeyCode.LeftControl))
         {
-            targetHeight = crouchHeight;
+            isProneState = !isProneState;
+            targetHeight = isProneState ? proneHeight : defaultHeight;
+
+            //adjust camera height
+            Vector3 camPos = playerCamera.transform.localPosition;
+            camPos.y = isProneState ? camProneY : camStandY;
+            playerCamera.transform.localPosition = camPos;
+
+            //adjust camera rotation
+            playerCamera.transform.localRotation = isProneState
+                ? camProneRot
+                : camStandRot;
         }
-        else
-        {
-            targetHeight = defaultHeight;
-        }
-        
-        //Teleport
-        if (Input.GetKeyDown("y")) // Checks if y button is pressed
-        {
+
+        // Teleport
+        if (Input.GetKeyDown(KeyCode.Y))
             TeleportToNextPoint();
-        }
 
-        //Show APC UI
-        if (Input.GetKeyDown("h") || Input.GetKeyDown("p")) // Checks if u button is pressed
+        // Toggle UI (APC)
+        if (Input.GetKeyDown(KeyCode.H) || Input.GetKeyDown(KeyCode.P))
         {
-            if (canMove)
-            {
-                canMove = false;
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
-            }
-            else
-            {
-                canMove = true;
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
-            }
-
+            canMove = !canMove;
+            Cursor.lockState = canMove ? CursorLockMode.Locked : CursorLockMode.None;
+            Cursor.visible   = !canMove;
         }
 
-
-
-        // Move.
         MovementControl();
     }
-
-
 
     // Handle Teleportation
     public void TeleportToNextPoint()
@@ -98,111 +109,105 @@ public class PlayerMovement : MonoBehaviour
 
         currentPointIndex = (currentPointIndex + 1) % teleportPoints.Length;
         Debug.Log($"Teleporting to point index: {currentPointIndex}");
+
         if (rb != null)
-        {
-            StartCoroutine(Teleport()); // Use transform position
-        }
+            StartCoroutine(Teleport());
         else
-        {
-            Debug.Log("Rigidbody not found!");
-        }
+            Debug.LogWarning("Rigidbody not found!");
     }
 
-    public int CurrentPoint(){
+    public int CurrentPoint()
+    {
         return currentPointIndex;
     }
 
     IEnumerator Teleport()
     {
         characterController.enabled = false;
-        gameObject.transform.position = teleportPoints[currentPointIndex].position;
+        transform.position = teleportPoints[currentPointIndex].position;
         Debug.Log($"Teleported to: {teleportPoints[currentPointIndex].position}");
         characterController.enabled = true;
-
         yield return new WaitForSeconds(0.5f);
-        
     }
 
     // Handle player movement
     void MovementControl()
     {
         Vector3 forward = transform.TransformDirection(Vector3.forward);
-        Vector3 right = transform.TransformDirection(Vector3.right);
-
-        // Determine if the player is grounded
+        Vector3 right   = transform.TransformDirection(Vector3.right);
         bool isGrounded = characterController.isGrounded;
 
-        characterController.height = Mathf.Lerp(characterController.height, targetHeight, crouchTransitionSpeed * Time.deltaTime);
+        // Smoothly transition character height
+        characterController.height = Mathf.Lerp(
+            characterController.height,
+            targetHeight,
+            proneTransitionSpeed * Time.deltaTime
+        );
 
-        // Adjust speed while crouching
-        bool isCrouching = Mathf.Abs(characterController.height - crouchHeight) < 0.1f;
-        if (isCrouching)
-        {
-            isCurrentlyRunning = false; // Cannot run while crouching
-        }
+        //recenter
+            //     characterController.center =
+            // new Vector3(0f, characterController.height / 2f, 0f);
 
-        // Determine movement speed
-        if (Input.GetKey(KeyCode.LeftShift) && isGrounded && !isCrouching)
-        {
-            isCurrentlyRunning = true; // Start running if grounded and shift is held
-        }
+        // Check if currently prone
+        bool isProne = Mathf.Abs(characterController.height - proneHeight) < 0.1f;
+        if (isProne)
+            isCurrentlyRunning = false; // Can't run while prone
+
+        // Running input (Left Shift)
+        if (Input.GetKey(KeyCode.LeftShift) && isGrounded && !isProne)
+            isCurrentlyRunning = true;
         else if (isGrounded)
-        {
-            isCurrentlyRunning = false; // Stop running if grounded and shift is not held
-        }
+            isCurrentlyRunning = false;
 
-        float currentSpeed = isCrouching ? crouchSpeed : (isCurrentlyRunning ? runSpeed : walkSpeed);
-        float curSpeedX = canMove ? currentSpeed * Input.GetAxis("Vertical") : 0;
+        // Determine speed
+        float currentSpeed = isProne
+            ? proneSpeed
+            : (isCurrentlyRunning ? runSpeed : walkSpeed);
+
+        float curSpeedX = canMove ? currentSpeed * Input.GetAxis("Vertical")   : 0;
         float curSpeedY = canMove ? currentSpeed * Input.GetAxis("Horizontal") : 0;
 
-        // Preserve Y-axis movement
+        // Preserve Y velocity for gravity/jump
         float movementDirectionY = moveDirection.y;
 
+        // Grounded movement
         if (isGrounded)
-        {
-            // Update movement direction when grounded
-            moveDirection = (forward * curSpeedX) + (right * curSpeedY);
-        }
+            moveDirection = forward * curSpeedX + right * curSpeedY;
         else
         {
-            // Maintain momentum while airborne
+            // Airborne retains horizontal momentum plus any new input
             Vector3 horizontalVelocity = new Vector3(moveDirection.x, 0, moveDirection.z);
-            Vector3 inputVelocity = (forward * curSpeedX) + (right * curSpeedY);
-
-            // Add input to current horizontal velocity
+            Vector3 inputVelocity      = forward * curSpeedX + right * curSpeedY;
             if (inputVelocity != Vector3.zero)
-            {
                 horizontalVelocity = inputVelocity;
-            }
-
             moveDirection = horizontalVelocity;
         }
 
-        // Apply Y-axis movement
+        // Reapply Y
         moveDirection.y = movementDirectionY;
 
-        // Jump logic
+        // Jump
         if (Input.GetButton("Jump") && canMove && isGrounded)
-        {
             moveDirection.y = jumpPower;
-        }
 
-        // Apply gravity if not grounded
+        // Gravity
         if (!isGrounded)
-        {
             moveDirection.y -= gravity * Time.deltaTime;
-        }
 
-        // Move the character
+        // Move controller
         characterController.Move(moveDirection * Time.deltaTime);
 
-        // Handle camera rotation
+        // Camera rotation
         if (canMove)
         {
             rotationX += -Input.GetAxis("Mouse Y") * lookSpeed;
             rotationX = Mathf.Clamp(rotationX, -lookXLimit, lookXLimit);
             playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0, 0);
-            transform.rotation *= Quaternion.Euler(0, Input.GetAxis("Mouse X") * lookSpeed, 0);
+            transform.rotation *= Quaternion.Euler(
+                0,
+                Input.GetAxis("Mouse X") * lookSpeed,
+                0
+            );
         }
     }
 }

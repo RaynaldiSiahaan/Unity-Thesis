@@ -14,7 +14,7 @@ public class LaunchParamsClient : MonoBehaviour
     [Header("Camera & Simulation")]
     [Tooltip("The Camera that captured the launch vector")]
     public Camera sourceCamera;
-
+    public UIManager uiManager;
     private GrenadeSimulator simulator;
     private bool isPolling;
 
@@ -30,6 +30,7 @@ public class LaunchParamsClient : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.N) && !isPolling)
         {
             Debug.Log("[LaunchParamsClient] N pressed, starting detection…");
+            uiManager.OnStartPressed();
             StartCoroutine(StartAndWait());
         }
     }
@@ -76,6 +77,7 @@ public class LaunchParamsClient : MonoBehaviour
 
                         simulator.SetLaunchParams(data.velocity, worldDir);
                         simulator.LaunchFromParams();
+                        uiManager.OnThrowComplete();
                         Debug.Log($"[LaunchParamsClient] Launched grenade at {data.velocity:F2} m/s → {worldDir}");
                         break;
                     }

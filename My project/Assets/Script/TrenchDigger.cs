@@ -77,7 +77,7 @@ private void DigInitialArea()
     {
         if (xStart < 0 || yStart < 0 || xStart + xSize > heightmapRes || yStart + ySize > heightmapRes)
         {
-            Debug.LogError($"Digging area exceeds terrain bounds! Start: ({xStart}, {yStart}), Size: ({xSize}, {ySize}), Resolution: {heightmapRes}");
+            Debug.LogError($"Digging area beyond terrain bounds! Start: ({xStart}, {yStart}), Size: ({xSize}, {ySize}), Resolution: {heightmapRes}");
             return false;
         }
         return true;

@@ -1,13 +1,16 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-using Unity.Collections.LowLevel.Unsafe;
+// using Unity.Collections.LowLevel.Unsafe;
 using Unity.VisualScripting;
 using UnityEngine.Events;
-
+using TMPro;
 [RequireComponent(typeof(Rigidbody), typeof(TrailRenderer))]
 public class GrenadeSimulator : MonoBehaviour
 {
+    [Header("UI")]
+    [Tooltip("Hook up your UIManager here")]
+    [SerializeField] public UIManager uiManager;
     [Header("Throw Parameters (from camera)")]
     [Tooltip("Launch speed in meters/second")]
     [SerializeField] private float velocity = 15f;
@@ -31,6 +34,10 @@ public class GrenadeSimulator : MonoBehaviour
     [SerializeField] private Vector3 spinAxis = new Vector3(0, 0, 1);
     [Tooltip("Lift coefficient for Magnus effect C_l (dimensionless)")]
     [SerializeField] private float liftCoefficient = 0.2f;
+
+    [Header("Spin Settings")]
+[Tooltip("Impulse torque strength")]
+[SerializeField] private float spinTorque = 5f;
 
     [Header("Explosion Settings")]
     public GameObject explosionPrefab;    // assign your explosion VFX prefab here
@@ -57,6 +64,8 @@ public class GrenadeSimulator : MonoBehaviour
 
     void Awake()
     {
+        uiManager = FindObjectOfType<UIManager>();
+
         _initialPosition = transform.position;
         _initialRotation = transform.rotation;
         _initialScale = transform.localScale;
@@ -80,6 +89,7 @@ public class GrenadeSimulator : MonoBehaviour
         trail.time = 2f;
         trail.startWidth = 0.05f;
         trail.endWidth = 0.01f;
+        trail.emitting = false; // disable until thrown
         if (trail.material == null)
         {
             var mat = new Material(Shader.Find("Sprites/Default"));
@@ -96,11 +106,14 @@ public class GrenadeSimulator : MonoBehaviour
 
     void ThrowGrenade()
     {
+        trail.emitting = true; // enable trail rendering
         Vector3 initialVel = direction * velocity;
         rb.linearVelocity = initialVel;
+
+            rb.AddTorque(spinAxis.normalized * spinTorque, ForceMode.Impulse);
+
         // schedule explosion
         Invoke(nameof(Explode), explosionDelay);
-        Debug.Log($"[GrenadeSimulator] Grenade will explode in {explosionDelay} seconds");
     }
 
     private void OnCollisionEnter(Collision other)
@@ -134,10 +147,12 @@ public class GrenadeSimulator : MonoBehaviour
         rb.AddForce(dragForce + magnusForce, ForceMode.Force);
     }
 
-    private void Explode()
+    public void Explode()
 
     {
         Vector3 origin = transform.position;
+        Vector3 downAxis = transform.up;
+        float halfAngle = 45f;
         // spawn explosion VFX
         Instantiate(explosionPrefab, transform.position, Quaternion.identity);
 
@@ -149,51 +164,77 @@ public class GrenadeSimulator : MonoBehaviour
             float dist = Vector3.Distance(transform.position, barrelTransform.position);
             Debug.Log($"[Explode] Distance to {barrelTransform.name}: {dist:F2} m");
         }
-
-
-
-
-        // TODO: apply damage, area effects, sound, etc. here
-
-        //Code untuk kekuatan ledakan
+        //Code untuk Sphere
         Collider[] hits = Physics.OverlapSphere(origin, _explosionRadius);
-        foreach (var hitCol in hits)
+         foreach (var hitCol in hits)
+    {
+        // Skip the grenade itself
+        if (hitCol.transform == transform)
+            continue;
+
+        // Direction and distance to target
+        Vector3 toTarget = hitCol.bounds.center - origin;
+        float   dist     = toTarget.magnitude;
+
+        // 4) Line‑of‑sight check (optional)
+        if (Physics.Raycast(origin, toTarget.normalized, out RaycastHit info, dist)
+            && info.collider != hitCol)
+            continue;
+        Rigidbody targetRb = hitCol.GetComponent<Rigidbody>();
+        // 5) Apply explosion force
+        if (targetRb != null)
         {
-            // skip self
-            if (hitCol.transform == transform)
-                continue;
+            targetRb.AddExplosionForce(_explosionForce, origin, _explosionRadius);
 
-            Vector3 toTarget = hitCol.bounds.center - origin;
-            float dist = toTarget.magnitude;
-
-            // line-of-sight check
-            if (Physics.Raycast(origin, toTarget.normalized, out RaycastHit info, dist))
-            {
-                // if the ray hit something *other* than our intended collider, it's occluded
-                if (info.collider != hitCol)
-                    continue;
-            }
-
-            // now safe to apply force
-            Rigidbody targetRb = hitCol.GetComponent<Rigidbody>();
-            if (targetRb != null)
-            {
-                targetRb.AddExplosionForce(_explosionForce, origin, _explosionRadius);
-
-                // count barrels only
-                if (_barrels.Contains(hitCol.transform))
-                    barrelCount++;
-                
-
-            }
+            // Count barrels hit
+            if (_barrels.Contains(hitCol.transform))
+                barrelCount++;
         }
+    }
+        //Code untuk Cone Explosion
+        // foreach (var hitCol in hits)
+        // {
+        //     // skip self
+        //     if (hitCol.transform == transform)
+        //         continue;
+
+        //     Vector3 toTarget = hitCol.bounds.center - origin;
+
+        //     float angle = Vector3.Angle(downAxis, toTarget);
+        //     float dist = toTarget.magnitude;
+
+        //     if (angle <= halfAngle)
+        //     {
+        //         Debug.DrawRay(origin, toTarget.normalized * _explosionRadius, Color.red, 2f);
+
+        //         if (Physics.Raycast(origin, toTarget.normalized, out RaycastHit info, dist) && info.collider != hitCol)
+        //             continue;
+
+
+        //     // now safe to apply force
+        //     Rigidbody targetRb = hitCol.GetComponent<Rigidbody>();
+        //     if (targetRb != null)
+        //     {
+        //         targetRb.AddExplosionForce(_explosionForce, origin, _explosionRadius);
+
+        //         // count barrels only
+        //         if (_barrels.Contains(hitCol.transform))
+        //             barrelCount++;
+
+
+        //     }
+        //     }
+
+        //     // line-of-sight check
+
+        // }
         if (barrelCount > 0)
         {
-            Debug.Log($"{barrelCount} barrel(s) affected by explosion.");
+            uiManager.SetTargetStatus("Kena");
         }
         else if (barrelCount == 0)
         {
-            Debug.Log($"no barrel(s) affected by explosion.");
+            uiManager.SetTargetStatus("Tidak Kena");
         }
         // 2) play audio
         if (explosionSound != null)
@@ -221,25 +262,66 @@ public class GrenadeSimulator : MonoBehaviour
         rb.linearVelocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
         trail.Clear();
-
+        trail.emitting = false; // disable until thrown
         // re-enable every MeshRenderer
         foreach (var rend in GetComponentsInChildren<MeshRenderer>())
             rend.enabled = true;
     }
 
 
-    
+
     /// <summary>Set from external JSON data</summary>
-public void SetLaunchParams(float v, Vector3 dir)
+    public void SetLaunchParams(float v, Vector3 dir)
+    {
+        velocity = v;
+        direction = dir.normalized;
+    }
+
+    /// Trigger the rowrow using the just-set params.
+    public void LaunchFromParams()
+    {
+        rb.isKinematic = false; // allow physics to take over
+        ThrowGrenade();
+    }
+
+void OnDrawGizmosSelected()
 {
-    velocity = v;
-    direction = dir.normalized;
+    if (!Application.isPlaying) return;
+
+    Gizmos.color = Color.yellow;
+    Vector3 origin   = transform.position;
+    Vector3 axis     = transform.up;   // or -transform.up for downward cone
+    float   angleDeg = 45f;
+    float   length   = _explosionRadius;
+
+    // draw a fan of rays around the axis
+    for (int i = 0; i < 360; i += 30)
+    {
+        // first boundary
+        Vector3 dirA = Quaternion.AngleAxis(angleDeg, Quaternion.AngleAxis(i, axis) * transform.forward)
+                      * axis;
+        Gizmos.DrawRay(origin, dirA.normalized * length);
+
+        // second boundary
+        Vector3 dirB = Quaternion.AngleAxis(-angleDeg, Quaternion.AngleAxis(i, axis) * transform.forward)
+                      * axis;
+        Gizmos.DrawRay(origin, dirB.normalized * length);
+    }
+
+    // and a wire‑sphere to show your full radius
+    Gizmos.color = new Color(1,1,0,0.2f);
+    Gizmos.DrawWireSphere(origin, length);
+}
+void OnDrawGizmos()
+{
+    if (rb == null) return;
+    Gizmos.color = Color.cyan;
+    Gizmos.DrawLine(
+      transform.position,
+      transform.position + rb.angularVelocity.normalized * 0.5f
+    );
 }
 
-/// Trigger the throw using the just-set params.
-public void LaunchFromParams()
-{
-    rb.isKinematic = false; // allow physics to take over
-    ThrowGrenade();
+
 }
-}
+

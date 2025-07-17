@@ -7,6 +7,7 @@ TagManager:
   - Terrain
   - Target 1
   - Target 2
+  - Target 3
   layers:
   - Default
   - TransparentFX

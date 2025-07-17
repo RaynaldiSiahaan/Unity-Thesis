@@ -22,7 +22,7 @@ public class CapsuleController1 : MonoBehaviour
     {
         Vector3 pos = transform.position;
         input1 = d;
-        distance = float.Parse(input1) +6; // Convert string to float
+        distance = float.Parse(input1) +8; // Convert string to float
         transform.position = new Vector3(pos.x, pos.y, distance); 
     }
 

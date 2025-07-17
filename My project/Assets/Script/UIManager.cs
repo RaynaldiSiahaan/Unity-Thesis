@@ -1,59 +1,96 @@
+// UIManager.cs
 using UnityEngine;
 using TMPro;
+using UnityEngine.Networking;
 using System.Collections;
 
 public class UIManager : MonoBehaviour
 {
-    [Header("References to your TMP UI elements")]
+    [Header("UI Text Elements")]
     [SerializeField] private TextMeshProUGUI statusKameraText;
     [SerializeField] private TextMeshProUGUI jarakTargetText;
+
+    [SerializeField] private TextMeshProUGUI statusTargetText;
 
     [Header("Teleport & Target Setup")]
     [Tooltip("Drag in your PlayerMovement component here")]
     [SerializeField] private PlayerMovement playerMovement;
-
-    [Tooltip("List of tags for your targets, in the same order as your teleport points")]
+    [Tooltip("Tags for each target, in the same order as your teleport points")]
     [SerializeField] private string[] targetTags;
+
+    private enum CamState { Off, Standby, Mencari }
+    private CamState camState = CamState.Off;
+    private const string COORDS_URL = "http://127.0.0.1:5000/coords";
+
+    private GrenadeSimulator simulator;
+
 
     void Start()
     {
         if (playerMovement == null)
             playerMovement = FindObjectOfType<PlayerMovement>();
 
-        statusKameraText.text = "Status Kamera: Menunggu Input";
-        jarakTargetText.text  = "Jarak ke Target: –";
+        simulator = FindObjectOfType<GrenadeSimulator>();
 
-        // start the 2-second polling loop
+
+        // Kick off the camera‐connection check
+        StartCoroutine(CheckCameraLoop());
+
+        // Start updating distance every 2 seconds
         StartCoroutine(UpdateDistanceRoutine());
     }
 
-    /// <summary>Call when Unity presses N and /start returns success.</summary>
-    public void OnCameraReady()
+    /// <summary>
+    /// Polls the /coords endpoint once per second to detect camera readiness.
+    /// </summary>
+    private IEnumerator CheckCameraLoop()
     {
-        statusKameraText.text = "Status Kamera: Siap digunakan";
+        while (true)
+        {
+            using (var req = UnityWebRequest.Get(COORDS_URL))
+            {
+                yield return req.SendWebRequest();
+                if (req.result == UnityWebRequest.Result.Success)
+                    SetCamState(CamState.Standby);
+                else
+                    SetCamState(CamState.Off);
+            }
+            yield return new WaitForSeconds(1f);
+        }
     }
 
-    /// <summary>Call when the grenade actually launches.</summary>
+    /// <summary>
+    /// Call this right when you press N (i.e. POST /start goes out).
+    /// </summary>
+    public void OnStartPressed()
+    {
+        SetCamState(CamState.Mencari);
+    }
+
+    /// <summary>
+    /// Call this when the grenade actually launches (after valid /launch).
+    /// </summary>
     public void OnThrowComplete()
     {
-        statusKameraText.text = "Status Kamera: Menunggu Input";
+        SetCamState(CamState.Standby);
     }
 
+    /// <summary>
+    /// Updates the distance to current target every 2 seconds.
+    /// </summary>
     private IEnumerator UpdateDistanceRoutine()
     {
         while (true)
         {
-            // determine which target tag to use
             int idx = 0;
             if (playerMovement != null)
                 idx = playerMovement.CurrentPoint();
-            // clamp
+
             if (idx < 0 || idx >= targetTags.Length)
                 idx = 0;
-            
-            string tag = targetTags[idx];
-            GameObject tgt = GameObject.FindWithTag(tag);
 
+            var tag = targetTags[idx];
+            var tgt = GameObject.FindWithTag(tag);
             if (tgt != null)
             {
                 float dist = Vector3.Distance(Camera.main.transform.position, tgt.transform.position);
@@ -61,11 +98,37 @@ public class UIManager : MonoBehaviour
             }
             else
             {
-                jarakTargetText.text = $"Jarak ke Target: –";
+                jarakTargetText.text = "Jarak ke Target: –";
             }
 
-            // wait 2s before updating again
-            yield return new WaitForSeconds(1f);
+            yield return new WaitForSeconds(2f);
         }
+    }
+
+    /// <summary>
+    /// Internal helper to switch the status text.
+    /// </summary>
+    private void SetCamState(CamState newState)
+    {
+        if (camState == newState) return;
+        camState = newState;
+
+        switch (camState)
+        {
+            case CamState.Off:
+                statusKameraText.text = "Status Kamera: Off";
+                break;
+            case CamState.Standby:
+                statusKameraText.text = "Status Kamera: Standby";
+                break;
+            case CamState.Mencari:
+                statusKameraText.text = "Status Kamera: Mencari granat";
+                break;
+        }
+    }
+    
+    public void SetTargetStatus(string status)
+    {
+        statusTargetText.text = $"Status Target: {status}";
     }
 }
